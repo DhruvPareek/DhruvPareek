@@ -150,7 +150,6 @@ void *mm_malloc(size_t size) {
        asize = MIN_BLOCK_SIZE;
    }
  
-      mm_checkheap(0);//DELETE
  
  
    /* Search the free list for a fit */
@@ -159,7 +158,6 @@ void *mm_malloc(size_t size) {
        return block->body.payload;
    }
  
-     mm_checkheap(0);//DELETE
  
    /* No fit found. Get more memory and place the block */
    extendsize = (asize > CHUNKSIZE) // extend by the larger of the two
@@ -171,7 +169,6 @@ void *mm_malloc(size_t size) {
        return block->body.payload;
    }
  
-     mm_checkheap(0);//DELETE
  
    /* no more memory :( */
    return NULL;
@@ -184,15 +181,14 @@ void *mm_malloc(size_t size) {
 /* $begin mmfree */
 void mm_free(void *payload) {
    block_t *block = payload - sizeof(header_t);
-     printf("entering free, #bytes = %d \n", block->block_size);
+   printf("entering free, #bytes = %d \n", block->block_size);
    block->allocated = FREE;
    footer_t *footer = get_footer(block);
    footer->allocated = FREE;
    insertfreeblock(block);
    coalesce(block);
-     mm_checkheap(0);
+   mm_checkheap(0);
 }
- 
 /* $end mmfree */
  
 /*
@@ -242,7 +238,7 @@ void mm_checkheap(int verbose) {
    if (block->block_size != 0 || !block->allocated)
        printf("Bad epilogue header\n");
  
-    //debug_explicit_list(1000);
+    debug_explicit_list(1000);
    
    //iterate through free list to see if every block is free
    for(block_t *temp = explicitHead; temp != NULL; temp = temp->body.next)
@@ -390,7 +386,6 @@ static block_t *coalesce(block_t *block) {
        /* Update footer of next block to reflect new size */
        footer_t *next_footer = get_footer(block);
        next_footer->block_size = block->block_size;
-       insertfreeblock(block);
    }
  
    else if (!prev_alloc && next_alloc) { /* Case 3 - merge w block behind*/
@@ -402,7 +397,6 @@ static block_t *coalesce(block_t *block) {
        /* Update footer of current block to reflect new size */
        footer_t *footer = get_footer(prev_block);
        footer->block_size = prev_block->block_size;
-       insertfreeblock(prev_block);
        block = prev_block;
    }
  
@@ -416,7 +410,6 @@ static block_t *coalesce(block_t *block) {
        /* Update footer of next block to reflect new size */
        footer_t *next_footer = get_footer(prev_block);
        next_footer->block_size = prev_block->block_size;
-       insertfreeblock(prev_block);
        block = prev_block;
    }
  
@@ -536,7 +529,7 @@ static void debug_explicit_list(int depth) {
       break;
     }
 
-    printf("%p (%d bytes) -> ", forward, forward->block_size);
+    //printf("%p (%d bytes) -> ", forward, forward->block_size);
     forward = forward->body.next;
     f_len++;
   }
@@ -557,7 +550,7 @@ static void debug_explicit_list(int depth) {
       break;
     }
 
-    printf("%p (%d bytes) -> ", backward, backward->block_size);
+    //printf("%p (%d bytes) -> ", backward, backward->block_size);
     backward = backward->body.prev;
     b_len++;
   }
