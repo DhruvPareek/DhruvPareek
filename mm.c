@@ -88,13 +88,14 @@ static void checkblock(block_t *block);
 static void removefreeblock(block_t *block);
 static void insertfreeblock(block_t *block);
 static void debug_explicit_list(int depth);
+static void printFreeListLength();
  
 /*
 *  * mm_init - Initialize the memory manager
 *   */
 /* $begin mminit */
 int mm_init(void) {
-      printf("entering init \n");
+      //printf("entering init \n");
    /* create the initial empty heap */
    if ((prologue = mem_sbrk(CHUNKSIZE)) == (void*)-1)
        return -1;
@@ -119,7 +120,7 @@ int mm_init(void) {
    //point innit's next pointer at null
    init_block->body.next = NULL;
   
-     mm_checkheap(0);//DELETE
+    //mm_checkheap(0);//DELETE
  
    return 0;
 }
@@ -134,8 +135,9 @@ void *mm_malloc(size_t size) {
    uint32_t extendsize;  /* amount to extend heap if no fit */
    uint32_t extendwords; /* number of words to extend heap if no fit */
    block_t *block;
-    printf("entering malloc, #bytes = %d \n", size);
-      mm_checkheap(0);//DELETE
+    //printf("entering malloc, #bytes = %d \n", size);
+    //printFreeListLength();
+    //mm_checkheap(0);//DELETE
  
    /* Ignore spurious requests */
    if (size == 0)
@@ -181,13 +183,14 @@ void *mm_malloc(size_t size) {
 /* $begin mmfree */
 void mm_free(void *payload) {
    block_t *block = payload - sizeof(header_t);
-   printf("entering free, #bytes = %d \n", block->block_size);
+   //printf("entering free, #bytes = %d \n", block->block_size);
    block->allocated = FREE;
    footer_t *footer = get_footer(block);
    footer->allocated = FREE;
    insertfreeblock(block);
    coalesce(block);
-   mm_checkheap(0);
+   //mm_checkheap(0);
+   //printFreeListLength();
 }
 /* $end mmfree */
  
@@ -196,7 +199,7 @@ void mm_free(void *payload) {
 *   * NO NEED TO CHANGE THIS CODE!
 *    */
 void *mm_realloc(void *ptr, size_t size) {
-      printf("reallocating\n");
+      //printf("reallocating\n");
    void *newp;
    size_t copySize;
  
@@ -238,7 +241,7 @@ void mm_checkheap(int verbose) {
    if (block->block_size != 0 || !block->allocated)
        printf("Bad epilogue header\n");
  
-    debug_explicit_list(1000);
+    //debug_explicit_list(1000);
    
    //iterate through free list to see if every block is free
    for(block_t *temp = explicitHead; temp != NULL; temp = temp->body.next)
@@ -247,13 +250,13 @@ void mm_checkheap(int verbose) {
            printf("Explicit List contains allocated block\n");
        }
    }
-  /*
+  
    //go through every block to check that all free blocks are in the explicit list
    for(block_t *b = (void*)prologue + prologue->block_size; b->block_size > 0; b = (void *)b + b->block_size)
    {
        if(b->allocated == FREE){
            bool foundBlock = false;
-           for(block_t *temp = prologue->body.next; temp != NULL; temp = temp->body.next){
+           for(block_t *temp = explicitHead; temp != NULL; temp = temp->body.next){
                if(temp == b){
                    foundBlock = true;
                }
@@ -263,7 +266,7 @@ void mm_checkheap(int verbose) {
            }
        }
    }
-   */
+   
 
    //check to see if all blocks coalesced
     block_t *b = (void*)prologue + prologue->block_size;
@@ -282,12 +285,15 @@ void mm_checkheap(int verbose) {
  
 /* The remaining routines are internal helper routines */
  
+int numHeapExtensions = 0;
+
 /*
 *  * extend_heap - Extend heap with free block and return its block pointer
 *   */
 /* $begin mmextendheap */
 static block_t *extend_heap(size_t words) {
-      printf("extending heap \n");
+    numHeapExtensions++;
+    //printf("extending heap #%d \n", numHeapExtensions);
    block_t *block;
    uint32_t size;
    size = words << 3; // words*8
@@ -307,6 +313,7 @@ static block_t *extend_heap(size_t words) {
    header_t *new_epilogue = (void *)block_footer + sizeof(header_t);
    new_epilogue->allocated = ALLOC;
    new_epilogue->block_size = 0;
+   insertfreeblock(block);
    /* Coalesce if the previous block was free */
    return coalesce(block);
 }
@@ -373,13 +380,13 @@ static block_t *coalesce(block_t *block) {
    bool next_alloc = next_header->allocated;
  
    if (prev_alloc && next_alloc) { /* Case 1 */
-          printf("no coalescing \n");
+        //printf("no coalescing \n");
        /* no coalesceing */
        return block;
    }
  
    else if (prev_alloc && !next_alloc) { /* Case 2 - merge w next block*/
-          printf("coalescing current block w block infront \n");
+        //printf("coalescing current block w block infront \n");
         removefreeblock((void *)block + block->block_size);
        /* Update header of current block to include next block's size */
        block->block_size += next_header->block_size;
@@ -389,7 +396,7 @@ static block_t *coalesce(block_t *block) {
    }
  
    else if (!prev_alloc && next_alloc) { /* Case 3 - merge w block behind*/
-          printf("coalescing current block w block behind \n");
+        //printf("coalescing current block w block behind \n");
        /* Update header of prev block to include current block's size */
        removefreeblock(block);
        block_t *prev_block = (void *)prev_footer - prev_footer->block_size + sizeof(header_t);
@@ -401,7 +408,7 @@ static block_t *coalesce(block_t *block) {
    }
  
    else { /* Case 4 - merge w behind and infront*/
-       printf("coalescing current block w block infront and behind \n");
+       //printf("coalescing current block w block infront and behind \n");
        removefreeblock((void *)block + block->block_size);
        removefreeblock(block);
        /* Update header of prev block to include current and next block's size */
@@ -458,21 +465,21 @@ static void removefreeblock(block_t *block)
 
     if(block->body.next == NULL && block->body.prev == NULL)
     {//if we are removing only block in list
-          printf("removing only free block in explicit list, #bytes = %d \n", block->block_size);
+          //printf("removing only free block in explicit list, #bytes = %d \n", block->block_size);
         explicitHead = NULL;
     }else if(block->body.prev == NULL && block->body.next != NULL){
         //remove the first block in the explicit list
-          printf("removing first free block in explicit list, #bytes = %d \n", block->block_size);
+          //printf("removing first free block in explicit list, #bytes = %d \n", block->block_size);
         explicitHead = block->body.next;
         explicitHead->body.prev = NULL;
     }else if(block->body.prev != NULL && block->body.next == NULL){
         //remove the last item in the explicit free list
-          printf("removing last free block in explicit list, #bytes = %d \n", block->block_size);
+          //printf("removing last free block in explicit list, #bytes = %d \n", block->block_size);
         block_t *newLastBlock = block->body.prev;
         newLastBlock->body.next = NULL;
     }else if(block->body.prev != NULL && block->body.next != NULL){
         //remove block from middle of explicit list
-          printf("removing free block in middle of explicit list, #bytes = %d \n", block->block_size);
+         // printf("removing free block in middle of explicit list, #bytes = %d \n", block->block_size);
         block_t *blockBehind = block->body.prev;
         block_t *blockInfront = block->body.next;
         blockBehind->body.next = blockInfront;
@@ -484,7 +491,7 @@ static void removefreeblock(block_t *block)
 static void insertfreeblock(block_t *block)
 {
     if(explicitHead == NULL){//if we are adding the only item into the explicit free list
-          printf("inserting only free block in explicit list, #bytes = %d \n", block->block_size);
+          //printf("inserting only free block in explicit list, #bytes = %d \n", block->block_size);
         explicitHead = block;
         block->body.next = NULL;
         block->body.prev = NULL;
@@ -492,7 +499,7 @@ static void insertfreeblock(block_t *block)
     }
 
     //if there is already at least one block in free list
-      printf("inserting a free block in explicit list before other free blocks, #bytes = %d \n", block->block_size);
+      //printf("inserting a free block in explicit list before other free blocks, #bytes = %d \n", block->block_size);
     block_t *secondBlock = explicitHead;
     explicitHead = block;
     block->body.next = secondBlock;
@@ -567,4 +574,13 @@ static void debug_explicit_list(int depth) {
         "Validated: equal lengths (%d) for forward and backward traversal.\n",
         f_len);
   }
+}
+
+static void printFreeListLength() {
+    block_t *b;
+    int listLength = 0;
+   for (b = explicitHead; b != NULL; b = b->body.next) {
+       listLength++;
+   }
+   printf("Size of free list: %d \n", listLength);
 }
